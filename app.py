@@ -13,9 +13,9 @@ st.write("Introduce los datos del estudiante para estimar su nota final utilizan
 @st.cache_resource
 def load_artifacts():
     try:
-        columnas_one_hot = joblib.load('/one_hot_columns.joblib')
-        scaler = joblib.load('/min_max_scaler.joblib')
-        model = joblib.load('/bagging_optimizado.joblib')
+        columnas_one_hot = joblib.load('one_hot_columns.joblib')
+        scaler = joblib.load('min_max_scaler.joblib')
+        model = joblib.load('bagging_optimizado.joblib')
         return columnas_one_hot, scaler, model
     except Exception as e:
         st.error(f"Error al cargar los archivos .joblib: {e}")
