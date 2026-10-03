@@ -2,63 +2,153 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import os
+from io import BytesIO
 
-# Configurar la página de Streamlit
-st.set_page_config(page_title="Predicción de Aprobación de Curso", layout="centered")
-
+st.set_page_config(page_title="Predicción de Nota Final", layout="centered")
 st.title("Predicción de Nota Final - Curso")
-st.write("Introduce los datos del estudiante para estimar su nota final utilizando el modelo optimizado de Bagging.")
+st.write("Estima la nota final con el modelo optimizado de Bagging, de forma individual o cargando un archivo Excel.")
 
-# 1. Cargar artefactos necesarios de forma segura
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else os.getcwd()
+
+COL_FELDER = "Felder"
+COL_EXAMEN = "Examen_admisión"
+COL_SCALED = "Examen_admision_scaled"
+
+
 @st.cache_resource
 def load_artifacts():
     try:
-        columnas_one_hot = joblib.load('one_hot_columns.joblib')
-        scaler = joblib.load('min_max_scaler.joblib')
-        model = joblib.load('bagging_optimizado.joblib')
-        return columnas_one_hot, scaler, model
+        columnas = joblib.load(os.path.join(BASE_DIR, 'one_hot_columns.joblib'))
+        scaler = joblib.load(os.path.join(BASE_DIR, 'min_max_scaler.joblib'))
+        model = joblib.load(os.path.join(BASE_DIR, 'bagging_optimizado.joblib'))
+        return list(columnas), scaler, model
     except Exception as e:
         st.error(f"Error al cargar los archivos .joblib: {e}")
         return None, None, None
 
+
+def preparar(df, columnas, scaler, model):
+    """Convierte un DataFrame con Felder y Examen_admisión en la matriz que espera el modelo."""
+    df = df.copy()
+    df[COL_EXAMEN] = pd.to_numeric(df[COL_EXAMEN], errors="coerce")
+
+    # One-Hot manual
+    for col in columnas:
+        if col.startswith('Felder_'):
+            cat = col.replace('Felder_', '')
+            df[col] = (df[COL_FELDER].astype(str).str.strip() == cat).astype(float)
+
+    # Escalado
+    df[COL_SCALED] = scaler.transform(df[[COL_EXAMEN]]).ravel()
+
+    # Orden de columnas
+    if hasattr(model, "feature_names_in_"):
+        finales = list(model.feature_names_in_)
+    else:
+        finales = list(columnas)
+        if COL_SCALED not in finales:
+            finales.append(COL_SCALED)
+
+    for c in finales:
+        if c not in df.columns:
+            df[c] = 0.0
+    return df[finales]
+
+
+def plantilla_excel(categorias):
+    ejemplo = pd.DataFrame({
+        COL_FELDER: categorias[:2] if len(categorias) >= 2 else categorias,
+        COL_EXAMEN: [3.8, 4.2][:max(1, min(2, len(categorias)))]
+    })
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        ejemplo.to_excel(w, index=False, sheet_name="Estudiantes")
+    return buf.getvalue()
+
+
 columnas_one_hot, scaler, model = load_artifacts()
 
-if columnas_one_hot and scaler and model:
-    # 2. Formulario de entrada de usuario
-    st.header("Datos del Estudiante")
-    
-    # Extraer las categorías posibles para la variable 'Felder'
-    # Basado en la lista: ['Felder_equilibrio', 'Felder_intuitivo', 'Felder_reflexivo', 'Felder_secuencial', 'Felder_sensorial', 'Felder_verbal', 'Felder_visual']
-    categorias_felder = [col.replace('Felder_', '') for col in columnas_one_hot if col.startswith('Felder_')]
-    
-    felder_selected = st.selectbox("Estilo de Aprendizaje (Felder)", opciones=categorias_felder)
-    examen_admision = st.slider("Nota de Examen de Admisión", min_value=0.0, max_value=5.0, value=3.8, step=0.05)
-    
-    if st.button("Calcular Predicción"):
-        # 3. Procesar datos de entrada exactamente igual que el flujo anterior
-        df_input = pd.DataFrame([{'Felder': felder_selected, 'Examen_admisión': examen_admision}])
-        
-        # Aplicar codificación One-Hot manual de acuerdo a la lista cargada
-        for col in columnas_one_hot:
-            if col.startswith('Felder_'):
-                categoria = col.replace('Felder_', '')
-                df_input[col] = 1.0 if felder_selected == categoria else 0.0
-        
-        # Aplicar el Min-Max Scaler cargado
-        df_input['Examen_admision_scaled'] = scaler.transform(df_input[['Examen_admisión']])[0][0]
-        
-        # Seleccionar y ordenar las columnas según las que espera el modelo
-        columnas_finales = [col for col in columnas_one_hot if col in df_input.columns]
-        df_procesado = df_input[columnas_finales]
-        
-        # 4. Realizar la predicción con el modelo
-        prediccion = model.predict(df_procesado)[0]
-        
-        # Mostrar resultados en pantalla
-        st.success(f"### Nota Final Estimada: {prediccion:.3f}")
-        
-        # Mostrar detalle de variables enviadas al modelo
-        with st.expander("Ver variables procesadas enviadas al modelo"):
-            st.dataframe(df_procesado)
+if columnas_one_hot is not None and scaler is not None and model is not None:
+    categorias_felder = [c.replace('Felder_', '') for c in columnas_one_hot if c.startswith('Felder_')]
+
+    tab1, tab2 = st.tabs(["Estudiante individual", "Cargar Excel"])
+
+    # ---------- Individual ----------
+    with tab1:
+        st.header("Datos del Estudiante")
+        felder_sel = st.selectbox("Estilo de Aprendizaje (Felder)", options=categorias_felder)
+        examen = st.slider("Nota de Examen de Admisión", 0.0, 5.0, 3.8, 0.05)
+
+        if st.button("Calcular Predicción"):
+            df_in = pd.DataFrame([{COL_FELDER: felder_sel, COL_EXAMEN: examen}])
+            X = preparar(df_in, columnas_one_hot, scaler, model)
+            pred = model.predict(X)[0]
+            st.success(f"### Nota Final Estimada: {pred:.3f}")
+            with st.expander("Ver variables procesadas enviadas al modelo"):
+                st.dataframe(X)
+
+    # ---------- Excel ----------
+    with tab2:
+        st.header("Predicción masiva desde Excel")
+        st.write(f"El archivo debe tener las columnas **{COL_FELDER}** y **{COL_EXAMEN}**.")
+        st.caption(f"Valores válidos de Felder: {', '.join(categorias_felder)}")
+
+        st.download_button(
+            "Descargar plantilla de ejemplo",
+            data=plantilla_excel(categorias_felder),
+            file_name="plantilla_estudiantes.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        archivo = st.file_uploader("Sube tu archivo Excel", type=["xlsx", "xls"])
+
+        if archivo is not None:
+            try:
+                xls = pd.ExcelFile(archivo)
+                hoja = st.selectbox("Hoja", xls.sheet_names) if len(xls.sheet_names) > 1 else xls.sheet_names[0]
+                df_excel = pd.read_excel(xls, sheet_name=hoja)
+                df_excel.columns = [str(c).strip() for c in df_excel.columns]
+
+                faltantes = [c for c in (COL_FELDER, COL_EXAMEN) if c not in df_excel.columns]
+                if faltantes:
+                    st.error(f"Faltan columnas en el archivo: {', '.join(faltantes)}")
+                    st.write("Columnas encontradas:", list(df_excel.columns))
+                else:
+                    st.write(f"Filas leídas: {len(df_excel)}")
+                    st.dataframe(df_excel.head())
+
+                    if st.button("Predecir todos"):
+                        df_excel[COL_EXAMEN] = pd.to_numeric(df_excel[COL_EXAMEN], errors="coerce")
+                        felder_ok = df_excel[COL_FELDER].astype(str).str.strip().isin(categorias_felder)
+                        valido = df_excel[COL_EXAMEN].notna() & felder_ok
+
+                        resultado = df_excel.copy()
+                        resultado["Nota_Final_Estimada"] = np.nan
+                        resultado["Observación"] = ""
+                        resultado.loc[~valido, "Observación"] = "Dato inválido (Felder o examen)"
+
+                        if valido.any():
+                            X = preparar(df_excel[valido], columnas_one_hot, scaler, model)
+                            resultado.loc[valido, "Nota_Final_Estimada"] = np.round(model.predict(X), 3)
+
+                        n_inv = int((~valido).sum())
+                        if n_inv:
+                            st.warning(f"{n_inv} fila(s) con datos inválidos; quedaron sin predicción.")
+
+                        st.success("Predicciones completadas")
+                        st.dataframe(resultado)
+
+                        buf = BytesIO()
+                        with pd.ExcelWriter(buf, engine="openpyxl") as w:
+                            resultado.to_excel(w, index=False, sheet_name="Predicciones")
+                        st.download_button(
+                            "Descargar resultados en Excel",
+                            data=buf.getvalue(),
+                            file_name="predicciones_notas.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        )
+            except Exception as e:
+                st.error(f"No se pudo procesar el archivo: {e}")
 else:
-    st.warning("Por favor, asegúrate de que los archivos 'one_hot_columns.joblib', 'min_max_scaler.joblib' y 'bagging_optimizado.joblib' se encuentren en la ruta correcta.")
+    st.warning("Asegúrate de que 'one_hot_columns.joblib', 'min_max_scaler.joblib' y 'bagging_optimizado.joblib' estén en la misma carpeta que este script.")
