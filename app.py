@@ -14,76 +14,68 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilo “Apple-like” con CSS
+# Estilo con blur, bordes redondeados y animaciones
 st.markdown("""
 <style>
-/* Fondo y tipografía */
-body, .stApp {
-    background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: #1d1d1f;
-}
-
-/* Títulos */
-h1, h2, h3 {
-    font-weight: 600;
-    letter-spacing: -0.02em;
-}
-
-/* Tarjetas / contenedores */
+/* Tarjetas / contenedores con blur */
 .card {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 18px;
     padding: 20px 24px;
     box-shadow:
         0 10px 30px rgba(0, 0, 0, 0.06),
         0 2px 8px rgba(0, 0, 0, 0.04);
-    border: 1px solid rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
     margin-bottom: 24px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .card:hover {
     transform: translateY(-2px);
     box-shadow:
-        0 18px 40px rgba(0, 0, 0, 0.08),
-        0 4px 12px rgba(0, 0, 0, 0.05);
+        0 18px 40px rgba(0, 0, 0, 0.09),
+        0 4px 12px rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.75);
 }
 
-/* Botones */
+/* Botones con animación sutil */
 .stButton > button {
     border-radius: 12px;
     border: 1px solid rgba(0,0,0,0.08);
-    background: #ffffff;
-    color: #1d1d1f;
     font-weight: 500;
     box-shadow:
         0 8px 20px rgba(0, 0, 0, 0.06),
         0 2px 6px rgba(0, 0, 0, 0.04);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .stButton > button:hover {
     transform: translateY(-1px);
     box-shadow:
         0 14px 28px rgba(0, 0, 0, 0.08),
         0 4px 10px rgba(0, 0, 0, 0.05);
-    background: #fafafa;
-}
-
-/* Inputs */
-.stSelectbox label, .stNumberInput label, .stSlider label {
-    font-weight: 500;
 }
 
 /* Métricas */
 .metric-card {
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-radius: 14px;
     padding: 14px 16px;
     box-shadow:
         0 8px 20px rgba(0, 0, 0, 0.05),
         0 2px 6px rgba(0, 0, 0, 0.03);
-    border: 1px solid rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.05);
     text-align: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.metric-card:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        0 14px 26px rgba(0, 0, 0, 0.07),
+        0 4px 10px rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.72);
 }
 .metric-value {
     font-size: 1.6rem;
@@ -96,13 +88,13 @@ h1, h2, h3 {
     margin-top: 4px;
 }
 
-/* Animaciones suaves */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
+/* Animaciones suaves de entrada */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 .fade-in {
-    animation: fadeIn 0.35s ease forwards;
+    animation: fadeInUp 0.35s ease forwards;
 }
 </style>
 """, unsafe_allow_html=True)
