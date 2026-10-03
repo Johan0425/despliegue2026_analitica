@@ -181,7 +181,7 @@ columnas_one_hot, scaler, model = load_artifacts()
 
 # ------------------ UI PRINCIPAL ------------------
 
-st.title("Predicción de Nota Final - Curso")
+st.title("Predicción de Nota Final - Curso - By JohanAntonioDev ")
 st.write(
     "Estima la nota final con el modelo optimizado de Bagging, "
     "de forma individual o cargando un archivo Excel."
